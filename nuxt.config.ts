@@ -11,7 +11,4 @@ export default defineNuxtConfig({
     "/ssg": { prerender: true },
     "/spa": { ssr: false },
   },
-  generate: {
-    exclude: [/^\/api/],
-  },
 });

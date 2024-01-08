@@ -93,16 +93,78 @@ With this mode, page is generated at build time and served to the browser and is
 #### SWR
 **Stale While Revalidate** [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#hybrid-rendering)
 
-This mode utilizes a technique called stale-while-revalidate, which allows the server to serve stale data while revalidating the data in the background. Server on demand generates and returns html response, which is cached until it changes (no TTL/time to live) or until TTL expired (with TTL). When detected change during receiving request (no TTL) or when TTL expired, server returns stale response and in the backround generates new html, which is then served on next request.
+This mode utilizes a technique called stale-while-revalidate, which allows the server to serve stale data while revalidating the data in the background. Server on demand generates and returns html response. This html response is cached on server (when app is deployed, this may differ based on provider (Vercel, Netlify etc.): information re- where the cache is stored is typically not disclosed by provider). There are two possible settings for caching:
+- no TTL (time to live) means response is cached until it changes;
+- TTL set means response is cached until TTL expired.
+When detected change during receiving request (no TTL) or when TTL expired, server returns stale response and in the backround generates new html, which is then served on next request.
 #### ISR
 **Incremental Static Regeneration** (also called **Hybrid Mode**) [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#hybrid-rendering)
 
-This rendering mode works pretty much same way as SWR, with the only difference that response is cached on CDN network. It can be cached permanently or for specified TTL.
+This rendering mode works pretty much same way as SWR, with the only difference that response is cached on CDN network. There are two possible settings for caching:
+- no TTL (time to live) means response is cached permanently;
+- TTL set means response is cached until TTL expired.
+
+### Project setup
+Project has 7 pages, each containing curent time and html response from the same route (route `/api/hello` returns json response with current time) with different available rendering modes enabled.
+
+[Example of page code:](pages/spa.vue)
+```
+<template>
+    <div>
+        <p>SPA page</p>
+        <pre>{{ new Date().toUTCString() }} </pre>
+        <pre>{{ data }}</pre>
+        <NuxtLink to="/">Home</NuxtLink>
+    </div>
+</template>
+<script setup lang="ts">
+const { data } = await useFetch('/api/hello')
+</script>
+```
+The only difference between pages is this fragment:
+```
+<p>SPA page</p>
+```
+which has a page type.
+All other code is same for each page.
+
+[API route:](server/api/hello.ts)
+```
+export default defineEventHandler((event) => {
+  return {
+    hello: "world" + new Date().toUTCString(),
+  };
+});
+```
+Rendering modes are set up in [nuxt.config](nuxt.config.ts):
+```
+export default defineNuxtConfig({
+  devtools: { enabled: true },
+  ssr: true,
+  routeRules: {
+    "/isr_ttl": { isr: 60 },
+    "/isr_no_ttl": { isr: true },
+    "/swr_ttl": { swr: 60 },
+    "/swr_no_ttl": { swr: true },
+    "/ssg": { prerender: true },
+    "/spa": { ssr: false },
+  },
+});
+```
 
 ### Technical details and showcase
-Project has 7 pages, each containing curent time and html response from the same route (route `/api/hello` returns json response with current time) with different available rendering modes enabled:
 
-1. `/spa` - **single page application** (also called **client side rendering**). Below screencast shows that html response returned is blank and time rendered in browser is same as time coming from api response.
+1. `/spa` - **single page application** (also called **client side rendering**).
+To illustrate the SPA behaviour we can look on below table illustrating values for the first request, as well as screencast:
+
+| Data                                          | Value                         |
+| -------------------------------               | ----------------------------- |
+| HTML response - time rendered                 | HTML response is blank        |
+| HTML response - time from api response        | HTML response is blank        |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 13:26:58 GMT |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 13:26:58 GMT |
+
+As we can see in the table, html response is blank, and time rendered in browser is same as time received in api response, since api request happens during rendering. On the subsequent requests / page reload, html response will be blank each time and time will change each time as well, but will remain same for browser-rendered value and api response value.
 
 <img src="readme_assets/spa.gif" width="1200"/>
 
@@ -112,7 +174,20 @@ To enable this mode, set up a route rule in nuxt.config as following:
     "/spa": { ssr: false },
   },
 ```
-2. `/ssr` - **server side rendering** (also called **universal rendering**). Below screencast shows that html response for the page is not the same as rendered page: time rendered in browser is slightly different from the time coming from api response as api response is generated prior.
+<div id="ssr-tech-details"></div>
+
+2. `/ssr` - **server side rendering** (also called **universal rendering**).
+
+To illustrate the SSR behaviour we can look on below table illustrating values for the first request, as well as screencast:
+
+| Data                                          | Value                         |
+| -------------------------------               | ----------------------------- |
+| HTML response - time rendered                 | Fri, 05 Jan 2024 14:07:54 GMT |
+| HTML response - time from api response        | Fri, 05 Jan 2024 14:07:54 GMT |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 14:07:55 GMT |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 14:07:54 GMT |
+
+As we can see in the table, time rendered in browser may be slightly different from the time coming from api response as api response is generated prior, but timestamps are still very close to each other as html generation happens on demand and is not cached. This behavior will not change in subsequent requests / page reload.
 
 <img src="readme_assets/ssr.gif" width="1200"/>
 
@@ -122,6 +197,17 @@ To enable this mode, enable ssr in nuxt.config as following:
 ```
 3. `/ssg` - **static site generation**. In below screencast we can see that html response served never changes, the only thing which changes is the time rendered in browser.
 
+To illustrate the SSG behaviour we can look on below table illustrating values for the first request, as well as screencast:
+
+| Data                                          | Value                         |
+| -------------------------------               | ----------------------------- |
+| HTML response - time rendered                 | Fri, 05 Jan 2024 12:18:57 GMT |
+| HTML response - time from api response        | Fri, 05 Jan 2024 12:18:57 GMT |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 14:23:23 GMT |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 12:18:57 GMT |
+
+In above table we can see quite big time difference between time rendered in browser as visible by user vs other timestamps since SSG mode generates html during build time and it does not change later. This behavior will not change in subsequent requests / page reload.
+
 <img src="readme_assets/ssg.gif" width="1200"/>
 
 To enable this mode, set up a route rule in nuxt.config as following:
@@ -130,7 +216,18 @@ To enable this mode, set up a route rule in nuxt.config as following:
     "/ssg": { prerender: true },
   },
 ```
-4. `/swr_no_ttl` - **stale while revalidate** without TTL enabled. Below screencast visualizes this rendering mode: on second request stale response is provided, while on third one updated response is served (since api response includes current time, api response itself is different on each request).
+4. `/swr_no_ttl` - **stale while revalidate** without TTL enabled. 
+
+To illustrate the SWR behaviour without TTL enabled we can look on below table illustrating values for multiple requests, as well as screencast:
+
+| Data                                          | Value - first request         | Value - second request        | Value - third request         |
+| -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
+| HTML response - time rendered                 | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
+| HTML response - time from api response        | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 15:21:04 GMT | Fri, 05 Jan 2024 15:21:10 GMT | Fri, 05 Jan 2024 15:21:15 GMT |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
+
+In above table we can see that upon first request we get values similar to [SSR behavior](#ssr-tech-details) where only time rendered in browser is slightly different; on second request stale response is provided and time rendered in browser changes, while on third request updated response is served (since api response includes current time, api response itself is different on each request) and time rendered in browser is updated as well.
 
 <img src="readme_assets/swr_no_ttl.gif" width="1200"/>
 
@@ -141,6 +238,17 @@ To enable this mode, set up a route rule in nuxt.config as following:
   },
 ```
 5. `/swr_ttl` - **stale while revalidate** with TTL 60 seconds enabled. This rendering mode is visible in below screencast where stale response is served for 60 seconds, after it is passed, next request is still containing stale data, after that new data is served.
+
+To illustrate the SWR behaviour with TTL enabled we can look on below table illustrating values for multiple requests, as well as screencast:
+
+| Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
+| -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| HTML response - time rendered                 | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
+| HTML response - time from api response        | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 15:30:17 GMT | Fri, 05 Jan 2024 15:30:28 GMT | Fri, 05 Jan 2024 15:31:22 GMT                        | Fri, 05 Jan 2024 15:31:29 GMT                        |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
+
+In above table and screencast we can see that upon first request we get values similar to [SSR behavior](#ssr-tech-details) where only time rendered in browser is slightly different; on second request stale response is provided and time rendered in browser changes; subsequent requests until TTL of 60 seconds passes are having same stale response. After TTL expires, next request is still containing stale data, after that new data is served.
 
 <img src="readme_assets/swr_ttl.gif" width="1200"/>
 
