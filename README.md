@@ -75,34 +75,43 @@ bun run preview
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
 
+## Story behind
+
+We were building the listing site with Nuxt 3 and wanted to make sure we use proper rendering mode for each page to optimize the page load times while preserving the SEO benefits. When we looked into this in more details, we could see that the documentation is somewhat scarce, especially for newer and more complex rendering modes, such as ISR (more details on it coming below), especially in terms of specific technical details of functionality and testing; various rendering modes are used under different names in different knowledge resources and some peculiarities exist regarding the implementation between different providers, such as Vercel, Netlify etc.
+This brought us the idea of summarizing the information we found in below article, which provides both conceptual explanation and technical details regarding setting up various rendering modes in Nuxt 3, all in plain English, so that it is easy for understand even for relative beginners.
+
+Knowledge prerequisites: base knowledge of Nuxt and Vercel deployment
+
 ## Rendering modes
 
 ### Overview
 #### SPA
-**Single Page Application** (also called **Client Side Rendering**). [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#client-side-rendering)
+**Single Page Application** (also called **Client Side Rendering**).
 
 In this rendering mode  HTML elements are generated after the browser downloads and parses all the JavaScript code containing the instructions to create the current interface.
 #### SSR
-**Server Side Rendering** (also called **Universal Rendering**). [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#universal-rendering)
+**Server Side Rendering** (also called **Universal Rendering**).
 
 In this mode, Nuxt server generates the html on demand and returns a fully rendered HTML page to the browser.
 #### SSG
-**Static Site Generation** [Documentation link](https://nuxt.com/docs/getting-started/deployment#selective-pre-rendering)
+**Static Site Generation**
 
 With this mode, page is generated at build time and served to the browser and is not regenerated again until next build
 #### SWR
-**Stale While Revalidate** [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#hybrid-rendering)
+**Stale While Revalidate**
 
 This mode utilizes a technique called stale-while-revalidate, which allows the server to serve stale data while revalidating the data in the background. Server on demand generates and returns html response. This html response is cached on server (when app is deployed, this may differ based on provider (Vercel, Netlify etc.): information re- where the cache is stored is typically not disclosed by provider). There are two possible settings for caching:
 - no TTL (time to live) means response is cached until it changes;
 - TTL set means response is cached until TTL expired.
 When detected change during receiving request (no TTL) or when TTL expired, server returns stale response and in the backround generates new html, which is then served on next request.
 #### ISR
-**Incremental Static Regeneration** (also called **Hybrid Mode**) [Documentation link](https://nuxt.com/docs/guide/concepts/rendering#hybrid-rendering)
+**Incremental Static Regeneration** (also called **Hybrid Mode**)
 
 This rendering mode works pretty much same way as SWR, with the only difference that response is cached on CDN network. There are two possible settings for caching:
 - no TTL (time to live) means response is cached permanently;
 - TTL set means response is cached until TTL expired.
+
+***Note***: ISR in Nuxt 3 is different from ISR in Next.js in terms of that in Nuxt 3 with ISR html is generated on demand, while in Next.js it is generated during build time by default.
 
 ### Project setup
 Project has 7 pages, each containing curent time and html response from the same route (route `/api/hello` returns json response with current time) with different available rendering modes enabled.
