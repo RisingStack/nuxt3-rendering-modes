@@ -80,7 +80,7 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 We were building the listing site with Nuxt 3 and wanted to make sure we use proper rendering mode for each page to optimize the page load times while preserving the SEO benefits. When we looked into this in more details, we could see that the documentation is somewhat scarce, especially for newer and more complex rendering modes, such as ISR (more details on it coming below), especially in terms of specific technical details of functionality and testing; various rendering modes are used under different names in different knowledge resources and some peculiarities exist regarding the implementation between different providers, such as Vercel, Netlify etc.
 This brought us the idea of summarizing the information we found in below article, which provides both conceptual explanation and technical details regarding setting up various rendering modes in Nuxt 3, all in plain English, so that it is easy for understand even for relative beginners.
 
-Knowledge prerequisites: base knowledge of Nuxt and Vercel deployment
+Knowledge prerequisites: base knowledge of Nuxt
 
 ## Rendering modes
 
@@ -88,15 +88,15 @@ Knowledge prerequisites: base knowledge of Nuxt and Vercel deployment
 #### SPA
 **Single Page Application** (also called **Client Side Rendering**).
 
-In this rendering mode  HTML elements are generated after the browser downloads and parses all the JavaScript code containing the instructions to create the current interface.
+HTML elements are generated after the browser downloads and parses all the JavaScript code containing the instructions to create the current interface.
 #### SSR
 **Server Side Rendering** (also called **Universal Rendering**).
 
-In this mode, Nuxt server generates the html on demand and returns a fully rendered HTML page to the browser.
+Nuxt server generates the html on demand and returns a fully rendered HTML page to the browser.
 #### SSG
 **Static Site Generation**
 
-With this mode, page is generated at build time and served to the browser and is not regenerated again until next build
+Page is generated at build time and served to the browser and is not regenerated again until next build
 #### SWR
 **Stale While Revalidate**
 
@@ -246,7 +246,7 @@ To enable this mode, set up a route rule in nuxt.config as following:
     "/swr_no_ttl": { swr: true },
   },
 ```
-5. `/swr_ttl` - **stale while revalidate** with TTL 60 seconds enabled. This rendering mode is visible in below screencast where stale response is served for 60 seconds, after it is passed, next request is still containing stale data, after that new data is served.
+5. `/swr_ttl` - **stale while revalidate** with TTL 60 seconds enabled.
 
 To illustrate the SWR behaviour with TTL enabled we can look on below table illustrating values for multiple requests, as well as screencast:
 
@@ -267,7 +267,20 @@ To enable this mode, set up a route rule in nuxt.config as following:
     "/swr_ttl": { swr: 60 },
   },
 ```
-6. `/isr_no_ttl` - **incremental static regeneration** (also called **hybrid mode**) without TTL enabled. Below screencast shows that response does not change even after 60 seconds have passed (typically Vercel's default TTL).
+6. `/isr_no_ttl` - **incremental static regeneration** (also called **hybrid mode**) without TTL enabled. 
+
+To illustrate the ISR behaviour without TTL enabled we can look on below table illustrating values for multiple requests, as well as screencast:
+
+| Data                                          | Value - first request         | Value - second request        | Value - third request         |
+| -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
+| HTML response - time rendered                 | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
+| HTML response - time from api response        | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
+| Page visible by user - time rendered          | Fri, 05 Jan 2024 14:39:24 GMT | Fri, 05 Jan 2024 14:39:30 GMT | Fri, 05 Jan 2024 14:39:36 GMT |
+| Page visible by user - time from api response | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
+
+In above table and screencast we can see that upon first request we get values similar to [SSR behavior](#ssr-tech-details) where only time rendered in browser is slightly different; all subsequent requests until TTL of 60 seconds passes are having same stale response, even after 60 seconds have passed (typically Vercel's default TTL).
+
+<img src="readme_assets/isr_no_ttl.gif" width="1200"/>
 
 To enable this mode, set up a route rule in nuxt.config as following:
 ```
@@ -275,7 +288,20 @@ To enable this mode, set up a route rule in nuxt.config as following:
     "/isr_no_ttl": { isr: true },
   },
 ```
-7. `/isr_ttl` - **incremental static regeneration** (also called **hybrid mode**) with TTL of 60 seconds enabled. Below screencast demonstrates that stale response is served for 60 seconds, after it is passed, next request is still containing stale data, after that new data is served.
+7. `/isr_ttl` - **incremental static regeneration** (also called **hybrid mode**) with TTL of 60 seconds enabled. 
+
+To illustrate the ISR behaviour with TTL enabled we can look on below table illustrating values for multiple requests, as well as screencast:
+
+| Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
+| -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| HTML response - time rendered                 | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
+| HTML response - time from api response        | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
+| Page visible by user - time rendered          | Tue, 09 Jan 2024 14:32:20 GMT | Tue, 09 Jan 2024 14:32:27 GMT | Tue, 09 Jan 2024 14:33:20 GMT                        | Tue, 09 Jan 2024 14:33:27 GMT                        |
+| Page visible by user - time from api response | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
+
+In above table and screencast we can see that upon first request we get values similar to [SSR behavior](#ssr-tech-details) where only time rendered in browser is slightly different; on second request stale response is provided and time rendered in browser changes; subsequent requests until TTL of 60 seconds passes are having same stale response. After TTL expires, next request is still containing stale data, after that new data is served.
+
+<img src="readme_assets/isr_ttl.gif" width="1200"/>
 
 To enable this mode, set up a route rule in nuxt.config as following:
 ```
@@ -284,7 +310,3 @@ To enable this mode, set up a route rule in nuxt.config as following:
   },
 ```
 Note that all above mentioned rendering modes expect ISR can easily be tested in local environment as well by building and previewing the app. Since ISR utilizes CDN network, it would require CDN in order to test (e.g. by deploying to Vercel).
-
-Vercel deployment can be configured to use [edge functions](https://vercel.com/docs/frameworks/nuxt#edge-functions) or [serverless functions](https://vercel.com/docs/frameworks/nuxt#serverless-functions). Note that SWR works only with edge functions while ISR works only with serverless functions
-
-[//TODO]: # (update SWR/ISR vercel based on response to customer service ticket)
