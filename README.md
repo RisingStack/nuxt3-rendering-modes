@@ -77,17 +77,18 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 
 ## Story behind
 
-We were building the listing site with Nuxt 3 and wanted to make sure we use proper rendering mode for each page to optimize the page load times while preserving the SEO benefits. When we looked into this in more details, we could see that the documentation is somewhat scarce, especially for newer and more complex rendering modes, such as ISR (more details on it coming below), especially in terms of specific technical details of functionality and testing; various rendering modes are used under different names in different knowledge resources and some peculiarities exist regarding the implementation between different providers, such as Vercel, Netlify etc.
-This brought us the idea of summarizing the information we found in below article, which provides both conceptual explanation and technical details regarding setting up various rendering modes in Nuxt 3, all in plain English, so that it is easy for understand even for relative beginners.
+We were developing a listing site using Nuxt 3 and aimed to optimize page load times while maintaining SEO benefits by choosing the right rendering mode for each page. Upon investigating this, we found that documentation was limited, particularly for newer and more complex rendering modes like [ISR](#isr). This scarcity was evident in the lack of specific technical details for functionality and testing. Moreover, various rendering modes are referred to differently across knowledge resources, and there are notable differences in implementation among providers such as Vercel, Netlify, etc. This led us to compile the information into the following article, which offers a clear, conceptual explanation and technical insights on setting up different rendering modes in Nuxt 3. 
 
 Knowledge prerequisites: base knowledge of Nuxt
 
 ## Rendering modes
 ### Project setup
-Project has 7 pages, each containing curent time and html response from the same route (route `/api/hello` returns json response with current time) with different available rendering modes enabled.
 
-[Example of page code:](pages/spa.vue)
-```
+The project consists of 7 pages, each displaying the current time and an HTML response from the same route. Specifically, the route /api/hello returns a JSON response with the current time, and each page features a different available rendering mode enabled.
+
+The pages differ only in their title that refers to the rendering mode used for generating them. [In the case of the simple SPA for example:](pages/spa.vue)
+
+```vue
 <template>
     <div>
         <p>{{ pageType }} page</p>
@@ -101,27 +102,44 @@ const pageType = "SWR ttl"; // value differs based on route
 const { data } = await useFetch('/api/hello')
 </script>
 ```
-On this page we are rendering two timestamps:
-1. API response which contains the timestamp:
-```
-<pre>{{ data }}</pre>
-```
-2. Current timestamp:
-```
-<pre>{{ new Date().toUTCString() }} </pre>
-```
-We use these two timestamps to illustrate the functionality in each rendering mode due to hydration process: client-side process during which Vue takes over the static HTML sent by the server and turns it into dynamic DOM that can react to client-side data changes. In our case, this means that current date will always reflect a current timestamp during page render time, while the time from API response will show the timestamp of when the html was rendered on server. 
 
-[API route:](server/api/hello.ts)
+To make it visible when the page was rendered, we showcase 2 timestamps on the site:
+
+1. One we get from the API response, to see when was the page rendered by the server::
+
+```vue
+<template>
+[...]
+        <pre>Time in server rendered HTML: {{ data }}</pre>
+[...]
+</template>
+
+<script setup lang="ts">
+const { data } = await useFetch('/api/hello')
+</script>
 ```
+
+2. And one in the browser:
+
+```vue
+<pre>Time after hydration: {{ new Date().toUTCString() }} </pre>
+```
+
+We utilize these two timestamps to demonstrate the functionality of each rendering mode, focusing on the hydration process. In case you're new to SSR frameworks: First, we send the browser a full-fledged HTML version of the initial state of our site. Then it get's hydrated, meaning Vue takes over, builds whatever it needs, runs client-side JavaScript if necessary and attaches itself to the existing DOM elements. From here on, everything works the same as with any other SPA. In our scenario, this implies that the current first `<pre>` element will always display the timestamp of the time the page got rendered by the browser, while the second `<pre>` element showcases the time Vue got the response from the API, thus when the HTML got rendered on the server. 
+
+Our [API route](server/api/hello.ts) is as simple as this:
+
+```javascript
 export default defineEventHandler((event) => {
   return {
     hello: "world" + new Date().toUTCString(),
   };
 });
 ```
+
 Rendering modes are set up in [nuxt.config](nuxt.config.ts):
-```
+
+```javascript
 export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
@@ -138,6 +156,7 @@ export default defineNuxtConfig({
 
 ### Technical details and showcase
 #### SPA
+
 **Single Page Application** (also called **Client Side Rendering**).
 
 HTML elements are generated after the browser downloads and parses all the JavaScript code containing the instructions to create the current interface.
@@ -146,158 +165,189 @@ We use the route `/spa` to illustrate how this rendering mode works:
 
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
-| Time in server rendered html                  | HTML response is blank        |
-| Time in api response                          | Fri, 05 Jan 2024 13:26:58 GMT |
+| Time in server rendered HTML                  | HTML response is blank        |
+| Time in API response                          | Fri, 05 Jan 2024 13:26:58 GMT |
 | Time after hydration                          | Fri, 05 Jan 2024 13:26:58 GMT |
 
-As we can see in the table, html response is blank, and time after hydration is same as time received in api response. This is because api request happens client-side. On the subsequent requests / page reload, html response will be blank each time and time will change each time as well, but will remain same for browser-rendered value and api response value.
+As we can see in the table, the HTML response is blank, and the "Time after hydration" matches the "Time in API response". This occurs because the API request is made client-side. On subsequent requests or page reloads, the HTML response will always be blank, and the time will change with each request. However, the browser-rendered value and the API response value will consistently be the same.
 
 <img src="readme_assets/spa.gif" width="1200"/>
 
-To enable this mode, set up a route rule in nuxt.config as following:
-```
+To enable this mode, set up a route rule in nuxt.config as follows:
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/spa": { ssr: false },
   },
+});
 ```
-<div id="ssr-tech-details"></div>
 
 #### SSR
 **Server Side Rendering** (also called **Universal Rendering**).
 
-Nuxt server generates the html on demand and returns a fully rendered HTML page to the browser.
+The Nuxt server generates HTML on demand and delivers a fully rendered HTML page to the browser.
 
-We use the route `/ssr` to illustrate behaviour of this rendering mode:
+We use the route `/ssr` to illustrate the behaviour of this rendering mode:
 
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
-| Time in server rendered html                  | Fri, 05 Jan 2024 14:07:54 GMT |
-| Time in api response                          | Fri, 05 Jan 2024 14:07:54 GMT |
+| Time in server rendered HTML                  | Fri, 05 Jan 2024 14:07:54 GMT |
+| Time in API response                          | Fri, 05 Jan 2024 14:07:54 GMT |
 | Time after hydration                          | Fri, 05 Jan 2024 14:07:55 GMT |
 
-In this case, time after hydration may be slightly different from the time in api response as api response is generated prior, but timestamps are still very close to each other as html generation happens on demand and is not cached. This behavior will not change in subsequent requests / page reload.
+In this case, the "Time after hydration" might slightly differ from the "Time in API response" since the API response is generated beforehand. However, the timestamps will be very close to each other because the HTML generation occurs on demand and is not cached. This behavior will remain consistent across subsequent requests or page reloads.
 
 <img src="readme_assets/ssr.gif" width="1200"/>
 
-To enable this mode, enable ssr in nuxt.config as following:
+To enable this mode, enable SSR in `nuxt.config` as follows:
+
+```javascript
+export default defineNuxtConfig({
+  ssr: true
+});
 ```
-  ssr: true,
-```
+
 #### SSG
 **Static Site Generation**
 
-Page is generated at build time and served to the browser and is not regenerated again until next build
+The page is generated at build time, served to the browser, and will not be regenerated again until the next build.
 
-Route `/ssg` shows SSG behavior:
+The route `/ssg` demonstrates SSG behavior:
 
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
-| Time in server rendered html                  | Fri, 05 Jan 2024 12:18:57 GMT |
-| Time in api response                          | Fri, 05 Jan 2024 12:18:57 GMT |
+| Time in server rendered HTML                  | Fri, 05 Jan 2024 12:18:57 GMT |
+| Time in API response                          | Fri, 05 Jan 2024 12:18:57 GMT |
 | Time after hydration                          | Fri, 05 Jan 2024 14:23:23 GMT |
 
-In above table we can see quite big time difference between time after hydration vs other timestamps since SSG mode generates html during build time and it does not change later. This behavior will not change in subsequent requests / page reload.
+In the table mentioned above, there is a noticeable time difference between the time after hydration and other timestamps. This is because, in SSG mode, HTML is generated during build time and remains unchanged afterward. This behavior will persist across subsequent requests or page reloads.
 
 <img src="readme_assets/ssg.gif" width="1200"/>
 
-To enable this mode, set up a route rule in nuxt.config as following:
-```
+To enable this mode, set up a route rule in nuxt.config as follows:
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/ssg": { prerender: true },
   },
+});
 ```
+
 #### SWR
 **Stale While Revalidate**
 
-This mode utilizes a technique called stale-while-revalidate, which allows the server to serve stale data while revalidating the data in the background. Server on demand generates and returns html response. This html response is cached on server (when app is deployed, this may differ based on provider (Vercel, Netlify etc.): information re- where the cache is stored is typically not disclosed by provider). There are two possible settings for caching:
-- no TTL (time to live) means response is cached until it changes;
-- TTL set means response is cached until TTL expired.
-When detected change during receiving request (no TTL) or when TTL expired, server returns stale response and in the backround generates new html, which is then served on next request.
+This mode employs a technique called stale-while-revalidate, which enables the server to provide stale data while simultaneously revalidating it in the background. The server generates an HTML response on demand, which is then cached. When deployed, the caching specifics can vary depending on the provider (eg. Vercel, Netlify, etc.), and information about where the cache is stored is usually not disclosed. There are two primary settings for caching:
+
+1. No TTL (Time To Live): This means the response is cached until there is a change in the content.
+2. TTL Set: This implies that the response is cached until the set TTL expires.
+
+Nuxt saves the API response that was used for generating the first version of the page. Then upon all subsequent requests, only the API gets called, until the response changes. When a change is detected during a request – with no TTL set – or when the TTL expires, the server returns the stale response and generates new HTML in the background, which will be served for the next request.
 
 ##### SWR without TTL
-To see the behavior of SWR mode without TTL we have an `/swr_no_ttl` route:
+
+To observe the behavior of the SWR mode without a TTL set, you can take a look at the `/swr_no_ttl` route:
 
 | Data                                          | Value - first request         | Value - second request        | Value - third request         |
 | -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
-| Time in server rendered html                  | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
-| Time in api response                          | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
+| Time in server rendered HTML                  | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
+| Time in API response                          | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
 | Time after hydration                          | Fri, 05 Jan 2024 15:21:04 GMT | Fri, 05 Jan 2024 15:21:10 GMT | Fri, 05 Jan 2024 15:21:15 GMT |
 
 Let's dissect the above table a bit.
-In the first column we see similar behavior to the one seen with [SSR](#ssr-tech-details), as the time after hydration is slightly different from the time sent by the API response. Then in the second column we can see that the user waited about 7 seconds before reloading the page. The content gets served from cache as only the time after hydration changes. This however, triggers the regeneration of the page in the background, as the API response changed since the first page load. As a result we get a new version of the page on the third time we request it. Compare the "Time after hydration" in the second column with "Time in server rendered HTML" in the third column. There is only a 1 second difference between the too, the server rendering of the third request happened simultaneously with the second request being served.
+
+In the first column, the behavior is similar to that observed with [SSR](#ssr), as the "Time after hydration" slightly differs from the "Time provided in API response". In the second column, it appears the user waited around 7 seconds before reloading the page. The content is served from the cache, with only the time after hydration changing. However, this action triggers the regeneration of the page in the background due to the change in the API response since the first page load. As a result, a new version of the page is obtained upon the third request. To understand this, compare the "Time after hydration" in the second column with the "Time in server rendered HTML" in the third column. The difference is only about 1 second, indicating that the server's rendering of the third request occurred almost concurrently with the serving of the second request.
 
 <img src="readme_assets/swr_no_ttl.gif" width="1200"/>
 
-To enable this mode, set up a route rule in nuxt.config as following:
-```
+To enable this mode, set up a route rule in `nuxt.config` as follows:
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/swr_no_ttl": { swr: true },
   },
+})
 ```
+
 ##### SWR with TTL
 This rendering mode is set up on `/swr_ttl` route:
 
 | Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
 | -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| Time in server rendered html                  | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
-| Time in api response                          | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
+| Time in server rendered HTML                  | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
+| Time in API response                          | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
 | Time after hydration                          | Fri, 05 Jan 2024 15:30:17 GMT | Fri, 05 Jan 2024 15:30:28 GMT | Fri, 05 Jan 2024 15:31:22 GMT                        | Fri, 05 Jan 2024 15:31:29 GMT                        |
 
-Here, again, we can see that first request's values are similar to the ones in [SSR mode](#ssr-tech-details): only time after hydration is slightly different compared to other values. Second and subsequent requests until TTL of 60 seconds passes contain same timestamp for "Time in api response" row as the first request. After TTL expires (third column), time in api response is still stale, and in fourth column we can see new timestamp in "Time in api response" row.
+In this scenario, the values of the first request in the `/swr_ttl` route are again similar to those observed in [SSR mode](#ssr), with only the time after hydration differing slightly from the other values. For the second and subsequent requests, until the TTL of 60 seconds expires, the "Time in API response" row retains the same timestamp as the first request. After the TTL expires (as shown in the third column), the time in the API response is still stale. However, in the fourth column, a new timestamp appears in the "Time in API response" row, indicating that the content has been updated post-TTL expiry.
 
 <img src="readme_assets/swr_ttl.gif" width="1200"/>
 
 To enable this mode, set up a route rule in nuxt.config as following:
-```
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/swr_ttl": { swr: 60 },
   },
+})
 ```
+
 #### ISR
 **Incremental Static Regeneration** (also called **Hybrid Mode**)
 
-This rendering mode works pretty much same way as SWR, with the only difference that response is cached on CDN network. There are two possible settings for caching:
-- no TTL (time to live) means response is cached permanently;
-- TTL set means response is cached until TTL expired.
+This rendering mode operates similarly to SWR (Stale-While-Revalidate), with the primary distinction being that the response is cached on a CDN (Content Delivery Network). There are two potential settings for caching:
 
-***Note***: ISR in Nuxt 3 is different from ISR in Next.js in terms of that in Nuxt 3 with ISR html is generated on demand, while in Next.js it is generated during build time by default.
+1. No TTL (Time To Live): This implies that the response is cached permanently.
+2. TTL Set: In this case, the response is cached until the TTL expires.
+
+***Note***: ISR in Nuxt 3 differs significantly from ISR in Next.js in terms of HTML generation. In Nuxt 3, ISR generates HTML on demand, while in Next.js, ISR typically generates HTML during the build time by default.
 
 ##### ISR without TTL
-This mode is available on `/isr_no_ttl` route:
+
+This mode is available on the `/isr_no_ttl` route:
 
 | Data                                          | Value - first request         | Value - second request        | Value - third request         |
 | -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
-| Time in server rendered html                  | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
-| Time in api response                          | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
+| Time in server rendered HTML                  | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
+| Time in API response                          | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
 | Time after hydration                          | Fri, 05 Jan 2024 14:39:24 GMT | Fri, 05 Jan 2024 14:39:30 GMT | Fri, 05 Jan 2024 14:39:36 GMT |
 
-In above table and screencast we can see that value in "Time in api response" row does not change, even after 60 seconds have passed (typically Vercel's default TTL) since ISR without TTL caches permanently.
+In the table and screencast provided, it's evident that the value in the "Time in API response" row remains unchanged, even after 60 seconds have elapsed, which is typically the default TTL for Vercel. This observation aligns with the behavior of ISR without TTL in Nuxt 3, where the content is cached permanently.
 
 <img src="readme_assets/isr_no_ttl.gif" width="1200"/>
 
-To enable this mode, set up a route rule in nuxt.config as following:
-```
+To enable this mode, set up a route rule in `nuxt.config` as follows:
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/isr_no_ttl": { isr: true },
   },
+})
 ```
 ##### ISR with TTL
-Route `/isr_ttl` shows ISR behaviour without TTL: 
+
+The route `/isr_ttl` demonstrates ISR behaviour without TTL: 
 
 | Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
 | -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| Time in server rendered html                  | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
-| Time in api response                          | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
+| Time in server rendered HTML                  | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
+| Time in API response                          | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
 | Time after hydration                          | Tue, 09 Jan 2024 14:32:20 GMT | Tue, 09 Jan 2024 14:32:27 GMT | Tue, 09 Jan 2024 14:33:20 GMT                        | Tue, 09 Jan 2024 14:33:27 GMT                        |
 
-Upon first request we get values similar to [SSR behavior](#ssr-tech-details) where only time after hydration is slightly different. Second and subsequent requests until TTL of 60 seconds passes contain same timestamp for "Time in api response" row as the first request. After TTL expires (third column), time in api response is still stale, and in fourth column we can see new timestamp in "Time in api response" row..
+For the first request on the `/isr_ttl` route, the observed values are similar to the [SSR behavior](#ssr) behavior, with only the time after hydration showing a slight difference. During the second and subsequent requests, until the TTL of 60 seconds passes, the "Time in API response" row retains the same timestamp as in the first request. After the TTL expires (as shown in the third column), the time in the API response remains stale. It's only in the fourth column that a new timestamp appears in the "Time in API response" row, indicating an update post-TTL expiry.
 
 <img src="readme_assets/isr_ttl.gif" width="1200"/>
 
-To enable this mode, set up a route rule in nuxt.config as following:
-```
+To enable this mode, set up a route rule in `nuxt.config` as follows:
+
+```javascript
+export default defineNuxtConfig({
   routeRules: {
     "/isr_ttl": { isr: 60 },
   },
+})
 ```
-Note that all above mentioned rendering modes expect ISR can easily be tested in local environment as well by building and previewing the app. Since ISR utilizes CDN network, it would require CDN in order to test (e.g. by deploying to Vercel).
+Note that all the above mentioned rendering modes, except for ISR, can be easily tested in a local environment by building and previewing the app. ISR, however, relies on a CDN network for its functionality, which means it requires a CDN for proper testing. For example, deploying to Vercel would be necessary to test ISR effectively.
