@@ -1,80 +1,5 @@
 # Nuxt 3 Rendering modes
 
-Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
-
-## Startup
-### Setup
-
-Make sure to install the dependencies:
-
-```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-### Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm run dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-### Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm run build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm run preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
-
 ## Story behind
 
 We were developing a listing site using Nuxt 3 and aimed to optimize page load times while maintaining SEO benefits by choosing the right rendering mode for each page. Upon investigating this, we found that documentation was limited, particularly for newer and more complex rendering modes like [ISR](#isr). This scarcity was evident in the lack of specific technical details for functionality and testing. Moreover, various rendering modes are referred to differently across knowledge resources, and there are notable differences in implementation among providers such as Vercel, Netlify, etc. This led us to compile the information into the following article, which offers a clear, conceptual explanation and technical insights on setting up different rendering modes in Nuxt 3. 
@@ -92,13 +17,13 @@ The pages differ only in their title that refers to the rendering mode used for 
 <template>
     <div>
         <p>{{ pageType }} page</p>
-        <pre>{{ new Date().toUTCString() }} </pre>
-        <pre>{{ data }}</pre>
+        <pre>Time after hydration: {{ new Date().toUTCString() }} </pre>
+        <pre>Time in server rendered HTML: {{ data }}</pre>
         <NuxtLink to="/">Home</NuxtLink>
     </div>
 </template>
 <script setup lang="ts">
-const pageType = "SWR ttl"; // value differs based on route
+const pageType = "SPA"; // value differs for each route
 const { data } = await useFetch('/api/hello')
 </script>
 ```
@@ -131,9 +56,7 @@ Our [API route](server/api/hello.ts) is as simple as this:
 
 ```javascript
 export default defineEventHandler((event) => {
-  return {
-    hello: "world" + new Date().toUTCString(),
-  };
+  return new Date().toUTCString();
 });
 ```
 
@@ -154,6 +77,15 @@ export default defineNuxtConfig({
 });
 ```
 
+#### Startup
+Start the example project with:
+```bash
+git clone git@github.com:RisingStack/nuxt3-rendering-modes.git
+cd nuxt3-rendering-modes
+pnpm install
+pnpm dev
+```
+
 ### Technical details and showcase
 #### SPA
 
@@ -166,8 +98,8 @@ We use the route `/spa` to illustrate how this rendering mode works:
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
 | Time in server rendered HTML                  | HTML response is blank        |
-| Time in API response                          | Fri, 05 Jan 2024 13:26:58 GMT |
-| Time after hydration                          | Fri, 05 Jan 2024 13:26:58 GMT |
+| Time in API response                          | Tue, 16 Jan 2024 09:47:10 GMT |
+| Time after hydration                          | Tue, 16 Jan 2024 09:47:10 GMT |
 
 As we can see in the table, the HTML response is blank, and the "Time after hydration" matches the "Time in API response". This occurs because the API request is made client-side. On subsequent requests or page reloads, the HTML response will always be blank, and the time will change with each request. However, the browser-rendered value and the API response value will consistently be the same.
 
@@ -192,9 +124,9 @@ We use the route `/ssr` to illustrate the behaviour of this rendering mode:
 
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
-| Time in server rendered HTML                  | Fri, 05 Jan 2024 14:07:54 GMT |
-| Time in API response                          | Fri, 05 Jan 2024 14:07:54 GMT |
-| Time after hydration                          | Fri, 05 Jan 2024 14:07:55 GMT |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 09:47:45 GMT |
+| Time in API response                          | Tue, 16 Jan 2024 09:47:45 GMT |
+| Time after hydration                          | Tue, 16 Jan 2024 09:47:48 GMT |
 
 In this case, the "Time after hydration" might slightly differ from the "Time in API response" since the API response is generated beforehand. However, the timestamps will be very close to each other because the HTML generation occurs on demand and is not cached. This behavior will remain consistent across subsequent requests or page reloads.
 
@@ -217,9 +149,9 @@ The route `/ssg` demonstrates SSG behavior:
 
 | Data                                          | Value                         |
 | -------------------------------               | ----------------------------- |
-| Time in server rendered HTML                  | Fri, 05 Jan 2024 12:18:57 GMT |
-| Time in API response                          | Fri, 05 Jan 2024 12:18:57 GMT |
-| Time after hydration                          | Fri, 05 Jan 2024 14:23:23 GMT |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 10:00:41 GMT |
+| Time in API response                          | Tue, 16 Jan 2024 10:00:41 GMT |
+| Time after hydration                          | Tue, 16 Jan 2024 10:09:09 GMT |
 
 In the table mentioned above, there is a noticeable time difference between the time after hydration and other timestamps. This is because, in SSG mode, HTML is generated during build time and remains unchanged afterward. This behavior will persist across subsequent requests or page reloads.
 
@@ -251,13 +183,13 @@ To observe the behavior of the SWR mode without a TTL set, you can take a look a
 
 | Data                                          | Value - first request         | Value - second request        | Value - third request         |
 | -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
-| Time in server rendered HTML                  | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
-| Time in API response                          | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:03 GMT | Fri, 05 Jan 2024 15:21:09 GMT |
-| Time after hydration                          | Fri, 05 Jan 2024 15:21:04 GMT | Fri, 05 Jan 2024 15:21:10 GMT | Fri, 05 Jan 2024 15:21:15 GMT |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 09:48:55 GMT | Tue, 16 Jan 2024 09:48:55 GMT | Tue, 16 Jan 2024 09:49:02 GMT |
+| Time in API response                          | Tue, 16 Jan 2024 09:48:55 GMT | Tue, 16 Jan 2024 09:48:55 GMT | Tue, 16 Jan 2024 09:49:02 GMT |
+| Time after hydration                          | Tue, 16 Jan 2024 09:48:58 GMT | Tue, 16 Jan 2024 09:49:03 GMT | Tue, 16 Jan 2024 09:49:10 GMT |
 
 Let's dissect the above table a bit.
 
-In the first column, the behavior is similar to that observed with [SSR](#ssr), as the "Time after hydration" slightly differs from the "Time provided in API response". In the second column, it appears the user waited around 7 seconds before reloading the page. The content is served from the cache, with only the time after hydration changing. However, this action triggers the regeneration of the page in the background due to the change in the API response since the first page load. As a result, a new version of the page is obtained upon the third request. To understand this, compare the "Time after hydration" in the second column with the "Time in server rendered HTML" in the third column. The difference is only about 1 second, indicating that the server's rendering of the third request occurred almost concurrently with the serving of the second request.
+In the first column, the behavior is similar to that observed with [SSR](#ssr), as the "Time after hydration" slightly differs from the "Time provided in API response". In the second column, it appears the user waited around 5 seconds before reloading the page. The content is served from the cache, with only the time after hydration changing. However, this action triggers the regeneration of the page in the background due to the change in the API response since the first page load. As a result, a new version of the page is obtained upon the third request. To understand this, compare the "Time after hydration" in the second column with the "Time in server rendered HTML" in the third column. The difference is only about 1 second, indicating that the server's rendering of the third request occurred almost concurrently with the serving of the second request.
 
 <img src="readme_assets/swr_no_ttl.gif" width="1200"/>
 
@@ -276,9 +208,9 @@ This rendering mode is set up on `/swr_ttl` route:
 
 | Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
 | -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| Time in server rendered HTML                  | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
-| Time in API response                          | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT | Fri, 05 Jan 2024 15:30:16 GMT                        | Fri, 05 Jan 2024 15:31:21 GMT                        |
-| Time after hydration                          | Fri, 05 Jan 2024 15:30:17 GMT | Fri, 05 Jan 2024 15:30:28 GMT | Fri, 05 Jan 2024 15:31:22 GMT                        | Fri, 05 Jan 2024 15:31:29 GMT                        |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 09:49:52 GMT | Tue, 16 Jan 2024 09:49:52 GMT | Tue, 16 Jan 2024 09:49:52 GMT                        | Tue, 16 Jan 2024 09:50:58 GMT                        |
+| Time in API response                          | Tue, 16 Jan 2024 09:49:52 GMT | Tue, 16 Jan 2024 09:49:52 GMT | Tue, 16 Jan 2024 09:49:52 GMT                        | Tue, 16 Jan 2024 09:50:58 GMT                        |
+| Time after hydration                          | Tue, 16 Jan 2024 09:49:55 GMT | Tue, 16 Jan 2024 09:50:00 GMT | Tue, 16 Jan 2024 09:51:00 GMT                        | Tue, 16 Jan 2024 09:51:06 GMT                        |
 
 In this scenario, the values of the first request in the `/swr_ttl` route are again similar to those observed in [SSR mode](#ssr), with only the time after hydration differing slightly from the other values. For the second and subsequent requests, until the TTL of 60 seconds expires, the "Time in API response" row retains the same timestamp as the first request. After the TTL expires (as shown in the third column), the time in the API response is still stale. However, in the fourth column, a new timestamp appears in the "Time in API response" row, indicating that the content has been updated post-TTL expiry.
 
@@ -310,9 +242,9 @@ This mode is available on the `/isr_no_ttl` route:
 
 | Data                                          | Value - first request         | Value - second request        | Value - third request         |
 | -------------------------------               | ----------------------------- | ----------------------------- | ----------------------------- |
-| Time in server rendered HTML                  | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
-| Time in API response                          | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT | Fri, 05 Jan 2024 14:39:23 GMT |
-| Time after hydration                          | Fri, 05 Jan 2024 14:39:24 GMT | Fri, 05 Jan 2024 14:39:30 GMT | Fri, 05 Jan 2024 14:39:36 GMT |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 09:52:54 GMT | Tue, 16 Jan 2024 09:52:54 GMT | Tue, 16 Jan 2024 09:52:54 GMT |
+| Time in API response                          | Tue, 16 Jan 2024 09:52:54 GMT | Tue, 16 Jan 2024 09:52:54 GMT | Tue, 16 Jan 2024 09:52:54 GMT |
+| Time after hydration                          | Tue, 16 Jan 2024 09:52:56 GMT | Tue, 16 Jan 2024 09:53:03 GMT | Tue, 16 Jan 2024 09:53:11 GMT |
 
 In the table and screencast provided, it's evident that the value in the "Time in API response" row remains unchanged, even after 60 seconds have elapsed, which is typically the default TTL for Vercel. This observation aligns with the behavior of ISR without TTL in Nuxt 3, where the content is cached permanently.
 
@@ -333,9 +265,9 @@ The route `/isr_ttl` demonstrates ISR behaviour without TTL:
 
 | Data                                          | Value - first request         | Value - second request        | Value - first request after TTL of 60 seconds passed | Value - second request after TTL of 60 seconds passed |
 | -------------------------------               | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| Time in server rendered HTML                  | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
-| Time in API response                          | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT | Tue, 09 Jan 2024 14:32:19 GMT                        | Tue, 09 Jan 2024 14:33:19 GMT                        |
-| Time after hydration                          | Tue, 09 Jan 2024 14:32:20 GMT | Tue, 09 Jan 2024 14:32:27 GMT | Tue, 09 Jan 2024 14:33:20 GMT                        | Tue, 09 Jan 2024 14:33:27 GMT                        |
+| Time in server rendered HTML                  | Tue, 16 Jan 2024 10:01:21 GMT | Tue, 16 Jan 2024 10:01:21 GMT | Tue, 16 Jan 2024 10:01:21 GMT                        | Tue, 16 Jan 2024 10:02:24 GMT                        |
+| Time in API response                          | Tue, 16 Jan 2024 10:01:21 GMT | Tue, 16 Jan 2024 10:01:21 GMT | Tue, 16 Jan 2024 10:01:21 GMT                        | Tue, 16 Jan 2024 10:02:24 GMT                        |
+| Time after hydration                          | Tue, 16 Jan 2024 10:01:24 GMT | Tue, 16 Jan 2024 10:01:28 GMT | Tue, 16 Jan 2024 10:02:25 GMT                        | Tue, 16 Jan 2024 10:02:32 GMT                        |
 
 For the first request on the `/isr_ttl` route, the observed values are similar to the [SSR behavior](#ssr) behavior, with only the time after hydration showing a slight difference. During the second and subsequent requests, until the TTL of 60 seconds passes, the "Time in API response" row retains the same timestamp as in the first request. After the TTL expires (as shown in the third column), the time in the API response remains stale. It's only in the fourth column that a new timestamp appears in the "Time in API response" row, indicating an update post-TTL expiry.
 
