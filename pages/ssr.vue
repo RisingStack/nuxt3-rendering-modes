@@ -1,8 +1,8 @@
 <template>
     <div>
         <p>{{ pageType }} page</p>
-        <pre>{{ new Date().toUTCString() }} </pre>
-        <pre>{{ data }}</pre>
+        <pre>Time after hydration: {{ new Date().toUTCString() }} </pre>
+        <pre>Time in server rendered HTML: {{ data }}</pre>
         <NuxtLink to="/">Home</NuxtLink>
     </div>
 </template>
